@@ -1,14 +1,18 @@
 use std::env::args;
-
+use rgrep::regex::Regex;
 
 
 fn main() {
-    let args: Vec<String> = args().collect();
+    //let args: Vec<&str> = args().collect();
 
-    let regex: &String = &args[1];
-    let file_path: &String = &args[2];
+    let pattern = Regex::new("ab.*c");
+    let file_path: &str = "abec";
     
-    println!("Matching {:?} expression inside {:?}...",regex,file_path);
+    //println!("Matching {:?} expression inside {:?}...", pattern, file_path);
 
+    match pattern.unwrap().test(file_path) {
+        Ok(result) => println!("Result: {}", result),
+        Err(err) => println!("Error: {}", err),
+    }
 
 }
