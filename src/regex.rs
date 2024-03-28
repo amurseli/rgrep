@@ -1,8 +1,17 @@
 use std::collections::VecDeque;
 
+struct EvaluatedStep{
+    step:RegexStep,
+    size: usize,
+    backtrackeable: bool
+    
+}
+
+#[derive(Debug)]
 enum RegexVal{
     Literal(char),
     Wildcard,
+    Bracket(Vec<char>),
 
 }
 
@@ -11,8 +20,10 @@ impl RegexVal{
         match self {
             RegexVal::Literal(l) => {
                 if value.chars().next() == Some(*l){
+                    println!("El caracter {:?} coincidio",l);
                     l.len_utf8()
                 } else{
+                    println!("El caracter {:?} NO coincidio con {:?}",l, value.chars().next());
                     0
                 }
             },
@@ -23,22 +34,36 @@ impl RegexVal{
                     0
                 }
             },
+            RegexVal::Bracket(chars) => {
+                if let Some(c) = value.chars().next() {
+                    if chars.contains(&c) {
+                        c.len_utf8()
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                }
+            }
         }
     }
 }
 
+#[derive(Debug)]
 struct RegexStep{
     val: RegexVal,
     rep: RegexRep,
 }
 
+#[derive(Debug)]
 enum RegexRep{
     Any,
     Exact(usize),
     Range{
         min: Option<usize>,
         max: Option<usize>,
-    }
+    },
+    //Bracket(Vec<char>),       
 }
 
 pub struct Regex{
@@ -47,6 +72,7 @@ pub struct Regex{
 
 impl Regex{
     pub fn new(expression: &str) -> Result<Self, &str> {
+
         let mut steps: Vec<RegexStep> = Vec::new();
         
         let mut char_iter = expression.chars();
@@ -66,8 +92,27 @@ impl Regex{
                     }else{
                         return Err("'*' Inesperado")
                     }
-                    
                     None
+                }
+                '[' => {
+                    let mut chars = Vec::new();
+                    let mut negate = false;
+                    while let Some(ch) = char_iter.next() {
+                        match ch {
+                            ']' => break,
+                            '^' => negate = true,
+                            _ => chars.push(ch),
+                        }
+                    }
+                    //let val = if negate {
+                    //    RegexVal::NegatedBracket(chars)
+                    //} else {
+                       let val = RegexVal::Bracket(chars);
+                    //};
+                    Some(RegexStep {
+                        rep: RegexRep::Exact(1),
+                        val,
+                    })
                 }
 
                 _ => return Err("Caracter Inesperado")
@@ -87,29 +132,56 @@ impl Regex{
 
     pub fn test(self, value: &str) -> Result<bool, &str>{
         if !value.is_ascii(){
-            return Err("El iput no es ascii");
+            return Err("El input no es ascii");
         }
 
         let mut queue = VecDeque::from(self.steps);
+        let mut stack: Vec<EvaluatedStep> = Vec::new();
         let mut index = 0;
-
-        while let Some(step) = queue.pop_front(){
+        'steps: while let Some(step) = queue.pop_front(){
             match step.rep {
                 RegexRep::Exact(n) => {
-                    for _ in [1, n]{
+                    let mut match_size = 0;
+                    for _ in 0..=0{ //mirar este for
+                        println!("n {:?}", step.val);
                         let size =  step.val.matches(&value[index..]);
                         if size == 0{
-                            return Ok(false);
+                            match backtrack(step, &mut stack, &mut queue){
+                                Some(size) =>{
+                                    index -= size;
+                                    continue 'steps;
+                                }
+                                None => return Ok(false),
+                            }
+                        } else{
+                            match_size += size;
+                            index += size;
+                            println!("Index {:?}", index)
                         }
-                        index += size;
                     }
+                    stack.push(EvaluatedStep{
+                        step: step,
+                        size: match_size,
+                        backtrackeable: false
+
+                    })
                 }
                 RegexRep::Any => {
                     let mut keep_matching = true;
-                    while keep_matching{
+                    println!("n {:?}", step.val);
+                    while keep_matching{        
                         let match_size = step.val.matches(&value[index..]);
-                        if match_size != 0{
+                        if match_size != 0 {
                             index += match_size;
+                            if let Some(next_step) = queue.front() {
+                                if let RegexVal::Literal(next_char) = &next_step.val {
+                                    if let Some(current_char) = value.chars().nth(index) {
+                                        if current_char == *next_char {
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }else{
                             keep_matching = false;
                         }
@@ -121,5 +193,25 @@ impl Regex{
 
         Ok(true)
     }
+}
+
+fn backtrack(
+    current: RegexStep,
+    evaluated: &mut Vec<EvaluatedStep>,
+    next: &mut VecDeque<RegexStep>,
+ ) -> Option<usize> {
+    let mut back_size = 0;
+    next.push_front(current);
+    while let Some(e) = evaluated.pop(){
+    back_size += e.size;
+    if e.backtrackeable{
+        println!("Backtrack {:?}", back_size);
+        return Some(back_size);
+    } else {
+        next.push_front(e.step);
+    }
+    }
+    
+    None
 }
 

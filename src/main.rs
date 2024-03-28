@@ -5,8 +5,8 @@ use rgrep::regex::Regex;
 fn main() {
     //let args: Vec<&str> = args().collect();
 
-    let pattern = Regex::new("ab.*c");
-    let file_path: &str = "abec";
+    let pattern = Regex::new("a.b[le]");
+    let file_path: &str = "aibe";
     
     //println!("Matching {:?} expression inside {:?}...", pattern, file_path);
 

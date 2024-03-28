@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 
 
+#[[bin]]
+#name = "regex"
+#path = "src/regex.rs"  # Path to the main binary file
