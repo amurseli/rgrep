@@ -12,6 +12,7 @@ enum RegexVal{
     Literal(char),
     Wildcard,
     Bracket(Vec<char>),
+    NegatedBracket(Vec<char>),
 
 }
 
@@ -40,6 +41,17 @@ impl RegexVal{
                         c.len_utf8()
                     } else {
                         0
+                    }
+                } else {
+                    0
+                }
+            },
+            RegexVal::NegatedBracket(chars) => {
+                if let Some(c) = value.chars().next() {
+                    if chars.contains(&c) {
+                        0
+                    } else {
+                        c.len_utf8()
                     }
                 } else {
                     0
@@ -97,23 +109,34 @@ impl Regex{
                 '[' => {
                     let mut chars = Vec::new();
                     let mut negate = false;
+                    let mut closed = false;
                     while let Some(ch) = char_iter.next() {
                         match ch {
-                            ']' => break,
+                            ']' => {
+                                closed = true;
+                                break;
+                            }
                             '^' => negate = true,
                             _ => chars.push(ch),
                         }
                     }
-                    //let val = if negate {
-                    //    RegexVal::NegatedBracket(chars)
-                    //} else {
-                       let val = RegexVal::Bracket(chars);
-                    //};
+                    if !closed {
+                        return Err("No closing bracket found");
+                    }
+                    let val = if negate {
+                        RegexVal::NegatedBracket(chars)
+                    } else {
+                        RegexVal::Bracket(chars)
+                    };
                     Some(RegexStep {
                         rep: RegexRep::Exact(1),
                         val,
                     })
-                }
+                },
+                ' ' => Some(RegexStep{
+                    rep: RegexRep::Exact(1),
+                    val: RegexVal::Literal(c)
+                }),
 
                 _ => return Err("Caracter Inesperado")
 
