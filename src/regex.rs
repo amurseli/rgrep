@@ -1,5 +1,16 @@
 use std::collections::VecDeque;
 
+#[derive(Debug)]
+enum Class {
+    Alnum,
+    Alpha,
+    Digit,
+    Lower,
+    Upper,
+    Space,
+    Punct,
+}
+
 struct EvaluatedStep{
     step:RegexStep,
     size: usize,
@@ -13,10 +24,36 @@ enum RegexVal{
     Wildcard,
     Bracket(Vec<char>),
     NegatedBracket(Vec<char>),
+    Class(Class),
 
 }
 
 impl RegexVal{
+
+    fn match_class(value: char, class: &Class) -> usize {
+        match class {
+            Class::Alnum => {
+                if value.is_alphanumeric() {
+                    println!("El caracter {:?} coincidio",value);
+                    value.len_utf8()
+                } else {
+
+                    println!("El caracter {:?} NO coincidio",value);
+                    0
+                }
+            }
+            Class::Alpha => {
+                if value.is_alphabetic() {
+                    value.len_utf8()
+                } else {
+                    0
+                }
+            }
+            _ => 0, 
+        }
+    }
+
+
     pub fn matches (&self, value:&str) -> usize {
         match self {
             RegexVal::Literal(l) => {
@@ -53,6 +90,13 @@ impl RegexVal{
                     } else {
                         c.len_utf8()
                     }
+                } else {
+                    0
+                }
+            }
+            RegexVal::Class(class) =>{
+                if let Some(c) = value.chars().next() {
+                    Self::match_class(c, class)
                 } else {
                     0
                 }
@@ -110,24 +154,49 @@ impl Regex{
                     let mut chars = Vec::new();
                     let mut negate = false;
                     let mut closed = false;
+                    let mut is_class = false;
+                    let mut val = RegexVal::Literal(c);
                     while let Some(ch) = char_iter.next() {
                         match ch {
                             ']' => {
                                 closed = true;
                                 break;
-                            }
+                            },
                             '^' => negate = true,
+                            ':' => {
+                                let mut class_name = String::new();
+                                while let Some(name_ch) = char_iter.next() {
+                                    if name_ch == ':' {
+                                        is_class = true;
+                                        break;
+                                    }
+                                    class_name.push(name_ch);
+                                }
+                                val = match class_name.as_str() {
+                                    "alnum" => RegexVal::Class(Class::Alnum),
+                                    "alpha" => RegexVal::Class(Class::Alpha),
+                                    "digit" => RegexVal::Class(Class::Digit),
+                                    "lower" => RegexVal::Class(Class::Lower),
+                                    "upper" => RegexVal::Class(Class::Upper),
+                                    "space" => RegexVal::Class(Class::Space),
+                                    "punct" => RegexVal::Class(Class::Punct),
+                                    _ => return Err("Clase de caracteres desconocida"),
+                                };
+                                
+                            },
                             _ => chars.push(ch),
                         }
                     }
                     if !closed {
                         return Err("No closing bracket found");
                     }
-                    let val = if negate {
-                        RegexVal::NegatedBracket(chars)
-                    } else {
-                        RegexVal::Bracket(chars)
-                    };
+                    if !is_class{
+                        val = if negate {
+                            RegexVal::NegatedBracket(chars)
+                        } else {
+                            RegexVal::Bracket(chars)
+                        };
+                    }
                     Some(RegexStep {
                         rep: RegexRep::Exact(1),
                         val,

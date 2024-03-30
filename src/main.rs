@@ -5,8 +5,8 @@ use rgrep::regex::Regex;
 fn main() {
     //let args: Vec<&str> = args().collect();
 
-    let pattern = Regex::new("la [^qwertyuiop] no esta en la primer fila");
-    let file_path: &str = "la b no esta en la primer fila";
+    let pattern = Regex::new("[aiueo]");
+    let file_path: &str = "o";
     
     //println!("Matching {:?} expression inside {:?}...", pattern, file_path);
 
