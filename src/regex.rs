@@ -49,6 +49,41 @@ impl RegexVal{
                     0
                 }
             }
+            Class::Digit => {
+                if value.is_ascii_digit() {
+                    value.len_utf8()
+                } else {
+                    0
+                }
+            }
+            Class::Lower => {
+                if value.is_lowercase() {
+                    value.len_utf8()
+                } else {
+                    0
+                }
+            }
+            Class::Upper => {
+                if value.is_uppercase() {
+                    value.len_utf8()
+                } else {
+                    0
+                }
+            }
+            Class::Space => {
+                if value.is_whitespace() {
+                    value.to_string().len()
+                } else {
+                    0
+                }
+            }
+            Class::Punct => {
+                if value.is_ascii_punctuation() {
+                    value.to_string().len()
+                } else {
+                    0
+                }
+            }
             _ => 0, 
         }
     }
@@ -106,7 +141,7 @@ impl RegexVal{
 }
 
 #[derive(Debug)]
-struct RegexStep{
+pub struct RegexStep{
     val: RegexVal,
     rep: RegexRep,
 }
@@ -127,6 +162,66 @@ pub struct Regex{
 }
 
 impl Regex{
+
+    pub fn handle_brackets(
+        char_iter: &mut std::str::Chars,
+    ) -> Result<RegexStep, &'static str> {
+        let mut chars = Vec::new();
+        let mut negate = false;
+        let mut closed = false;
+        let mut is_class = false;
+        let mut val = RegexVal::Literal(' ');
+        
+        while let Some(ch) = char_iter.next() {
+            match ch {
+                ']' => {
+                    closed = true;
+                    break;
+                },
+                '^' => negate = true,
+                '[' => {
+                    if(char_iter.next() == Some(':')){
+                        let mut class_name = String::new();
+                        while let Some(name_ch) = char_iter.next() {
+                        if name_ch == ':' {
+                            is_class = true;
+                            break;
+                        }
+                        class_name.push(name_ch);
+                        }
+                        val = match class_name.as_str() {
+                            "alnum" => RegexVal::Class(Class::Alnum),
+                            "alpha" => RegexVal::Class(Class::Alpha),
+                            "digit" => RegexVal::Class(Class::Digit),
+                            "lower" => RegexVal::Class(Class::Lower),
+                            "upper" => RegexVal::Class(Class::Upper),
+                            "space" => RegexVal::Class(Class::Space),
+                            "punct" => RegexVal::Class(Class::Punct),
+                            _ => return Err("Clase de caracteres desconocida"),
+                        };
+                        char_iter.next();
+                    }
+                },
+                _ => chars.push(ch),
+            }
+        }
+        
+        if !closed {
+            return Err("No closing bracket found");
+        }
+        if !is_class {
+            val = if negate {
+                RegexVal::NegatedBracket(chars)
+            } else {
+                RegexVal::Bracket(chars)
+            };
+        }
+        Ok(RegexStep {
+            rep: RegexRep::Exact(1),
+            val,
+        })
+    }
+
     pub fn new(expression: &str) -> Result<Self, &str> {
 
         let mut steps: Vec<RegexStep> = Vec::new();
@@ -151,56 +246,10 @@ impl Regex{
                     None
                 }
                 '[' => {
-                    let mut chars = Vec::new();
-                    let mut negate = false;
-                    let mut closed = false;
-                    let mut is_class = false;
-                    let mut val = RegexVal::Literal(c);
-                    while let Some(ch) = char_iter.next() {
-                        match ch {
-                            ']' => {
-                                closed = true;
-                                break;
-                            },
-                            '^' => negate = true,
-                            ':' => {
-                                let mut class_name = String::new();
-                                while let Some(name_ch) = char_iter.next() {
-                                    if name_ch == ':' {
-                                        is_class = true;
-                                        break;
-                                    }
-                                    class_name.push(name_ch);
-                                }
-                                val = match class_name.as_str() {
-                                    "alnum" => RegexVal::Class(Class::Alnum),
-                                    "alpha" => RegexVal::Class(Class::Alpha),
-                                    "digit" => RegexVal::Class(Class::Digit),
-                                    "lower" => RegexVal::Class(Class::Lower),
-                                    "upper" => RegexVal::Class(Class::Upper),
-                                    "space" => RegexVal::Class(Class::Space),
-                                    "punct" => RegexVal::Class(Class::Punct),
-                                    _ => return Err("Clase de caracteres desconocida"),
-                                };
-                                
-                            },
-                            _ => chars.push(ch),
-                        }
+                    match Self::handle_brackets(&mut char_iter) {
+                        Ok(step) => Some(step),
+                        Err(err) => return Err(err),
                     }
-                    if !closed {
-                        return Err("No closing bracket found");
-                    }
-                    if !is_class{
-                        val = if negate {
-                            RegexVal::NegatedBracket(chars)
-                        } else {
-                            RegexVal::Bracket(chars)
-                        };
-                    }
-                    Some(RegexStep {
-                        rep: RegexRep::Exact(1),
-                        val,
-                    })
                 },
                 ' ' => Some(RegexStep{
                     rep: RegexRep::Exact(1),

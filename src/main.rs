@@ -5,8 +5,8 @@ use rgrep::regex::Regex;
 fn main() {
     //let args: Vec<&str> = args().collect();
 
-    let pattern = Regex::new("[aiueo]");
-    let file_path: &str = "o";
+    let pattern = Regex::new("ab[[:digit:]].e");
+    let file_path: &str = "absre";
     
     //println!("Matching {:?} expression inside {:?}...", pattern, file_path);
 
