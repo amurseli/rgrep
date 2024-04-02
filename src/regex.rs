@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{any::Any, collections::VecDeque};
 
 #[derive(Debug, Clone)]
 enum Class {
@@ -250,6 +250,14 @@ impl Regex {
                         return Err("'*' Inesperado");
                     }
                     None
+                },
+                '+' => {
+                    if let Some(last) = steps.last_mut() {
+                        last.rep = RegexRep::Range { min: Some(2), max:Some(19) };
+                    } else {
+                        return Err("'+' Inesperado");
+                    }
+                    None
                 }
                 '[' => match Self::handle_brackets(&mut char_iter) {
                     Ok(step) => Some(step),
@@ -270,7 +278,7 @@ impl Regex {
         Ok(Regex { steps })
     }
 
-    pub fn test(&mut self, value: &str) -> Result<bool, &str> {
+    pub fn test(&mut self, value: &str) -> Result<String, &str> {
         if !value.is_ascii() {
             return Err("El input no es ascii");
         }
@@ -294,7 +302,7 @@ impl Regex {
                                 }
                                 None => {
                                     if (value.len() < index + 1) {
-                                        return Ok(false);
+                                        return Ok("".to_string());
                                     }
                                     match_size += 1;
                                     index += 1;
@@ -332,11 +340,48 @@ impl Regex {
                         }
                     }
                 }
-                RegexRep::Range { min, max } => todo!(),
+                RegexRep::Range { min, max } => {
+                    let mut keep_matching = true;
+                    let mut counter: u128 = 0;
+                    println!("n {:?}", step.val);
+                    while keep_matching {
+                        let match_size = step.val.matches(&value[index..]);
+                        if match_size != 0 {
+                            counter += 1;
+                            index += match_size;
+                            if let Some(next_step) = queue.front() {
+                                if let RegexVal::Literal(next_char) = &next_step.val {
+                                    if let Some(current_char) = value.chars().nth(index) {
+                                        if current_char == *next_char {
+                                            if(counter < 2){
+                                                match backtrack(&step, &mut stack, &mut queue) {
+                                                    Some(size) => {
+                                                        index -= size;
+                                                        continue 'steps;
+                                                    }
+                                                    None => {
+                                                        if (value.len() < index + 1) {
+                                                            return Ok("".to_string());
+                                                        }
+                                                        index += 1;
+                                                    }
+                                                }                            
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            
+                            keep_matching = false;
+                        }
+                    }
+                },
             }
         }
 
-        Ok(true)
+        Ok(value.to_string())
     }
 }
 

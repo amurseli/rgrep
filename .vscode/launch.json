@@ -39,7 +39,7 @@
                 }
             },
             "args": [
-                "a[^ec]d",
+                "ab+cd",
                 "words.txt",
             ],
             "cwd": "${workspaceFolder}"
