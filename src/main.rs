@@ -1,4 +1,4 @@
-use rgrep::regex::Regex;
+use rgrep::structures::Regex;
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead};
@@ -15,10 +15,9 @@ fn main() {
     let regex_str = &args[1];
     let file_path = &args[2];
 
-
     let file = match File::open(file_path) {
         Ok(file) => file,
-        Err(err) => return ,
+        Err(err) => return,
     };
     let reader = io::BufReader::new(file);
 
@@ -26,7 +25,7 @@ fn main() {
     for line_result in reader.lines() {
         let line = match line_result {
             Ok(line) => line,
-            Err(err) => return ,
+            Err(err) => return,
         };
         lines.push(line);
     }
