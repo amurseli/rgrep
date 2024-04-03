@@ -35,15 +35,13 @@ fn main() {
                 continue;
             }
         };
-        for mut regex in pattern{
-            
+        for mut regex in pattern {
             match regex.test(&line) {
                 Ok(result) => {
-                    if !result.is_empty(){
+                    if !result.is_empty() {
                         println!("{}", result)
-    
                     }
-                },
+                }
                 Err(err) => println!("Error applying the regular expression pattern: {}", err),
             }
         }

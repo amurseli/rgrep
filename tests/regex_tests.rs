@@ -35,7 +35,6 @@ fn test_regex_1() {
     // Leer todas las líneas del archivo en un vector
     let lines: Vec<String> = reader.lines().map(|line| line.unwrap()).collect();
 
-
     match regex_instance.test(&lines[0]) {
         Ok(result) => {
             // Verifica si la prueba pasó o falló
@@ -46,8 +45,6 @@ fn test_regex_1() {
             panic!("Error al realizar la prueba: {}", err);
         }
     }
-
-
 }
 
 #[test]
@@ -78,7 +75,6 @@ fn test_regex_2() {
     // Leer todas las líneas del archivo en un vector
     let lines: Vec<String> = reader.lines().map(|line| line.unwrap()).collect();
 
-
     match regex_instance.test(&lines[1]) {
         Ok(result) => {
             // Verifica si la prueba pasó o falló
@@ -89,6 +85,4 @@ fn test_regex_2() {
             panic!("Error al realizar la prueba: {}", err);
         }
     }
-
-
 }

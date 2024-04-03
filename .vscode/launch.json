@@ -39,8 +39,8 @@
                 }
             },
             "args": [
-                "jazz|comes",
-                "beemovie.txt",
+                "^abcd",
+                "words.txt",
             ],
             "cwd": "${workspaceFolder}"
         },
