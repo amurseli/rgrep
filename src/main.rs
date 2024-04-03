@@ -15,17 +15,21 @@ fn main() {
     let regex_str = &args[1];
     let file_path = &args[2];
 
-    let file = match File::open(&file_path) {
-        Ok(file) => file,
-        Err(err) => {
-            println!("Error al abrir el archivo '{}': {}", file_path, err);
-            return;
-        }
-    };
 
+    let file = match File::open(file_path) {
+        Ok(file) => file,
+        Err(err) => return ,
+    };
     let reader = io::BufReader::new(file);
 
-    let lines: Vec<String> = reader.lines().map(|line| line.unwrap()).collect();
+    let mut lines = Vec::new();
+    for line_result in reader.lines() {
+        let line = match line_result {
+            Ok(line) => line,
+            Err(err) => return ,
+        };
+        lines.push(line);
+    }
 
     for line in lines {
         let mut pattern = match Regex::new(regex_str) {

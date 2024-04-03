@@ -1,1 +1,2 @@
-Pascalcase
+Este es el caracter + (mas)
+este no

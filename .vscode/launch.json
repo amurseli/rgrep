@@ -39,8 +39,8 @@
                 }
             },
             "args": [
-                "^abcd",
-                "words.txt",
+                "\\+",
+                "beemovie.txt",
             ],
             "cwd": "${workspaceFolder}"
         },

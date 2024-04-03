@@ -1,4 +1,4 @@
-use std::{any::Any, collections::VecDeque, os::unix::process, usize::MAX};
+use std::{any::Any, char, collections::VecDeque, os::unix::process, usize::MAX};
 
 #[derive(Debug, Clone)]
 enum Class {
@@ -88,20 +88,13 @@ impl RegexVal {
         match self {
             RegexVal::Literal(l) => {
                 if value.chars().next() == Some(*l) {
-                    //println!("El caracter {:?} coincidio", l);
                     l.len_utf8()
                 } else {
-                    //println!(
-                    //    "El caracter {:?} NO coincidio con {:?}",
-                    //    l,
-                    //    value.chars().next()
-                    //);
                     0
                 }
             }
             RegexVal::Wildcard => {
                 if let Some(w) = value.chars().next() {
-                    //println!("El caracter del texto {:?} coincidio con una wildcard", w);
                     w.len_utf8()
                 } else {
                     0
@@ -110,10 +103,8 @@ impl RegexVal {
             RegexVal::Bracket(chars) => {
                 if let Some(c) = value.chars().next() {
                     if chars.contains(&c) {
-                        //println!("El caracter {:?} se encontró en la Bracket", c);
                         c.len_utf8()
                     } else {
-                        println!("El caracter {:?} No se encontró en la Bracket", c);
                         0
                     }
                 } else {
@@ -123,16 +114,8 @@ impl RegexVal {
             RegexVal::NegatedBracket(chars) => {
                 if let Some(c) = value.chars().next() {
                     if chars.contains(&c) {
-                        //println!(
-                        //    "El caracter {:?} se encontró en la Bracket (lo cual es malo)",
-                        //    c
-                        //);
                         0
                     } else {
-                        //println!(
-                        //    "El caracter {:?} No se encontró en la Bracket (lo cual es bueno)",
-                        //    c
-                        //);
                         c.len_utf8()
                     }
                 } else {
@@ -298,12 +281,14 @@ impl Regex {
         None
     }
 
+    
     pub fn new(exp: &str) -> Result<Vec<Self>, &str> {
         let mut regex_list: Vec<Self> = Vec::new();
 
-        let expressions: Vec<&str> = exp.split('|').collect();
+        let mut expressions: Vec<&str> = exp.split('|').collect();
 
         for expression in expressions {
+            let mut escaped = false;
             let mut steps: Vec<RegexStep> = Vec::new();
             let mut char_iter = expression.chars();
             while let Some(c) = char_iter.next() {
@@ -311,14 +296,6 @@ impl Regex {
                     '.' => Some(RegexStep {
                         rep: RegexRep::Exact(1),
                         val: RegexVal::Wildcard,
-                    }),
-                    '^' => Some(RegexStep {
-                        rep: RegexRep::Exact(1),
-                        val: RegexVal::Literal(c),
-                    }),
-                    '$' => Some(RegexStep {
-                        rep: RegexRep::Exact(1),
-                        val: RegexVal::Literal(c),
                     }),
                     'a'..='z' => Some(RegexStep {
                         rep: RegexRep::Exact(1),
@@ -342,8 +319,24 @@ impl Regex {
                             return Err("'+' Inesperado");
                         }
                         None
+                    },
+                    '\\' => {
+                        match handle_backslash(&mut char_iter) {
+                            Ok(step) => {
+                                if let Some(step) = step {
+                                    Some(step)
+                                } else {
+                                    None
+                                }
+                            },
+                            Err(err) => return Err(err),
+                        }
                     }
-
+                    
+                    ' ' | '$' | '^' | '(' | ')' | '"' | '!' | ','  =>Some(RegexStep {
+                        rep: RegexRep::Exact(1),
+                        val: RegexVal::Literal(c),
+                    }),
                     '{' => Self::handle_curly(&mut steps, &mut char_iter),
 
                     '?' => {
@@ -357,15 +350,11 @@ impl Regex {
                         }
                         None
                     }
-
+                    
                     '[' => match Self::handle_brackets(&mut char_iter) {
                         Ok(step) => Some(step),
                         Err(err) => return Err(err),
                     },
-                    ' ' => Some(RegexStep {
-                        rep: RegexRep::Exact(1),
-                        val: RegexVal::Literal(c),
-                    }),
 
                     _ => return Err("Caracter Inesperado"),
                 };
@@ -383,12 +372,16 @@ impl Regex {
         if !value.is_ascii() {
             return Err("El input no es ascii");
         }
-        let mut queue = VecDeque::from(self.steps.clone());
+        
+        let mut queue = VecDeque::new();
+        for step in self.steps.drain(..) {
+            queue.push_back(step);
+        }
 
         if self.process_step(&mut queue, value) {
             return Ok(value.to_string());
         }
-
+        
         Ok("".to_string())
     }
 
@@ -397,7 +390,7 @@ impl Regex {
         let mut index = 0;
         let mut anchored_start = false;
         let mut anchored_end = false;
-
+        
         if let Some(first_step) = queue.front() {
             if let RegexVal::Literal('^') = first_step.val {
                 anchored_start = true;
@@ -514,6 +507,24 @@ impl Regex {
         true
     }
 }
+
+fn handle_backslash(char_iter: &mut std::str::Chars) -> Result<Option<RegexStep>, &'static str> {
+    let mut peekable_iter = char_iter.peekable();
+    if let Some(&next) = peekable_iter.peek() {
+        peekable_iter.next(); 
+        // Avanzar el iterador después de procesar el backslash
+        if let Some(&next_next) = peekable_iter.peek() {
+            peekable_iter.next();
+        }
+        Ok(Some(RegexStep {
+            rep: RegexRep::Exact(1),
+            val: RegexVal::Literal(next),
+        }))
+    } else {
+        Err("'\\' inesperado")
+    }
+}
+
 
 fn check_min_max(min: Option<usize>, max: Option<usize>, counter: usize) -> bool {
     match min {
