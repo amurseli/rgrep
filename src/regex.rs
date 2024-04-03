@@ -278,13 +278,12 @@ impl Regex {
                             max: None,
                         },
                         val: RegexVal::Literal('{'), //placeholder
-                    })
+                    });
                 }
             }
         }
 
         if let Some(last) = steps.last_mut() {
-            
             last.rep = RegexRep::Range { min, max };
         } else {
             return Some(RegexStep {
@@ -313,11 +312,11 @@ impl Regex {
                         rep: RegexRep::Exact(1),
                         val: RegexVal::Wildcard,
                     }),
-                    '^' =>Some(RegexStep {
+                    '^' => Some(RegexStep {
                         rep: RegexRep::Exact(1),
                         val: RegexVal::Literal(c),
                     }),
-                    '$' =>Some(RegexStep {
+                    '$' => Some(RegexStep {
                         rep: RegexRep::Exact(1),
                         val: RegexVal::Literal(c),
                     }),
@@ -412,7 +411,6 @@ impl Regex {
             }
         }
 
-
         'steps: while let Some(step) = queue.pop_front() {
             match step.rep {
                 RegexRep::Exact(n) => {
@@ -420,7 +418,7 @@ impl Regex {
                     for _ in 0..=0 {
                         let size = step.val.matches(&value[index..]);
                         if size == 0 {
-                            if(!anchored_start){
+                            if (!anchored_start) {
                                 match backtrack(&step, &mut stack, &mut queue) {
                                     Some(size) => {
                                         index -= size;
@@ -434,7 +432,7 @@ impl Regex {
                                         index += 1;
                                     }
                                 }
-                            }else{
+                            } else {
                                 return false;
                             }
                         } else {
@@ -510,9 +508,9 @@ impl Regex {
             }
         }
         if anchored_end && index != value.len() {
-            return false; // Mismatch at the end if anchored
+            return false;
         }
-        
+
         true
     }
 }
