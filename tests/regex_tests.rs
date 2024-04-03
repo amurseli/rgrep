@@ -1,10 +1,7 @@
-use std::ptr::eq;
-
-use rgrep::structures::Regex;
-use std::env;
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::path::Path;
+
+use rgrep::regex_step::Regex;
 
 #[test]
 fn test_regex_period() {

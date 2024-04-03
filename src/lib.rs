@@ -1,3 +1,7 @@
+pub mod class;
+pub mod evaluated_step;
 pub mod regex;
-pub mod structures;
+pub mod regex_rep;
+pub mod regex_step;
+pub mod regex_val;
 pub mod utils;

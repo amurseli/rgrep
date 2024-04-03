@@ -1,6 +1,8 @@
+use crate::class::Class;
+use crate::regex_rep::RegexRep;
+use crate::regex_step::RegexStep;
+use crate::regex_val::RegexVal;
 use std::usize::MAX;
-
-use crate::structures::{Class, EvaluatedStep, Regex, RegexRep, RegexStep, RegexVal};
 
 pub fn handle_backslash(
     char_iter: &mut std::str::Chars,
@@ -9,7 +11,7 @@ pub fn handle_backslash(
     if let Some(&next) = peekable_iter.peek() {
         peekable_iter.next();
         // Avanzar el iterador después de procesar el backslash
-        if let Some(&next_next) = peekable_iter.peek() {
+        if peekable_iter.peek().is_some() {
             peekable_iter.next();
         }
         Ok(Some(RegexStep {
@@ -24,23 +26,15 @@ pub fn handle_backslash(
 pub fn check_min_max(min: Option<usize>, max: Option<usize>, counter: usize) -> bool {
     match min {
         Some(min) => match max {
-            Some(max) => {
-                if (counter < min || counter > max) {
-                    return false;
-                } else {
-                    return true;
-                }
-            }
+            Some(max) => return !(counter < min || counter > max),
             None => {
-                if (counter > min) {
+                if counter > min {
                     return true;
                 }
-                return false;
+                false
             }
         },
-        None => {
-            return false;
-        }
+        None => false,
     }
 }
 
@@ -59,7 +53,7 @@ pub fn handle_brackets(char_iter: &mut std::str::Chars) -> Result<RegexStep, &'s
             }
             '^' => negate = true,
             '[' => {
-                if (char_iter.next() == Some(':')) {
+                if char_iter.next() == Some(':') {
                     let mut class_name = String::new();
                     while let Some(name_ch) = char_iter.next() {
                         if name_ch == ':' {
@@ -101,16 +95,13 @@ pub fn handle_brackets(char_iter: &mut std::str::Chars) -> Result<RegexStep, &'s
     })
 }
 
-pub fn handle_curly(
-    steps: &mut Vec<RegexStep>,
-    char_iter: &mut std::str::Chars,
-) -> Option<RegexStep> {
+pub fn handle_curly(steps: &mut [RegexStep], char_iter: &mut std::str::Chars) -> Option<RegexStep> {
     let mut min = None;
     let mut max = None;
     let mut num_str = String::new();
     let mut after_comma = false;
     let mut no_comma = true;
-    while let Some(ch) = char_iter.next() {
+    for ch in char_iter.by_ref() {
         match ch {
             ',' => {
                 no_comma = false;

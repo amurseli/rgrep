@@ -1,6 +1,10 @@
-use crate::structures::{Class, EvaluatedStep, Regex, RegexRep, RegexStep, RegexVal};
+use crate::class::Class;
+use crate::evaluated_step::EvaluatedStep;
+use crate::regex_rep::RegexRep;
+use crate::regex_step::{Regex, RegexStep};
+use crate::regex_val::RegexVal;
 use crate::utils::{check_min_max, handle_backslash, handle_brackets, handle_curly};
-use std::{any::Any, char, collections::VecDeque, os::unix::process, usize::MAX};
+use std::{char, collections::VecDeque, usize::MAX};
 
 impl RegexVal {
     /// Matches a character against a specified character class and returns the length of the match.
@@ -73,7 +77,6 @@ impl RegexVal {
                     0
                 }
             }
-            _ => 0,
         }
     }
 
@@ -90,7 +93,7 @@ impl RegexVal {
     pub fn matches(&self, value: &str) -> usize {
         match self {
             RegexVal::Literal(l) => {
-                if value.chars().next() == Some(*l) {
+                if value.starts_with(*l) {
                     l.len_utf8()
                 } else {
                     0
@@ -140,10 +143,9 @@ impl Regex {
     pub fn new(exp: &str) -> Result<Vec<Self>, &str> {
         let mut regex_list: Vec<Self> = Vec::new();
 
-        let mut expressions: Vec<&str> = exp.split('|').collect();
+        let expressions: Vec<&str> = exp.split('|').collect();
 
         for expression in expressions {
-            let mut escaped = false;
             let mut steps: Vec<RegexStep> = Vec::new();
             let mut char_iter = expression.chars();
             while let Some(c) = char_iter.next() {
@@ -176,13 +178,7 @@ impl Regex {
                         None
                     }
                     '\\' => match handle_backslash(&mut char_iter) {
-                        Ok(step) => {
-                            if let Some(step) = step {
-                                Some(step)
-                            } else {
-                                None
-                            }
-                        }
+                        Ok(step) => step,
                         Err(err) => return Err(err),
                     },
 
@@ -238,7 +234,7 @@ impl Regex {
         Ok("".to_string())
     }
 
-    fn process_step(&mut self, mut queue: &mut VecDeque<RegexStep>, value: &str) -> bool {
+    fn process_step(&mut self, queue: &mut VecDeque<RegexStep>, value: &str) -> bool {
         let mut stack: Vec<EvaluatedStep> = Vec::new();
         let mut index = 0;
         let mut anchored_start = false;
@@ -259,19 +255,19 @@ impl Regex {
 
         'steps: while let Some(step) = queue.pop_front() {
             match step.rep {
-                RegexRep::Exact(n) => {
+                RegexRep::Exact(_) => {
                     let mut match_size = 0;
                     for _ in 0..=0 {
                         let size = step.val.matches(&value[index..]);
                         if size == 0 {
-                            if (!anchored_start) {
-                                match backtrack(&step, &mut stack, &mut queue) {
+                            if !anchored_start {
+                                match backtrack(&step, &mut stack, queue) {
                                     Some(size) => {
                                         index -= size;
                                         continue 'steps;
                                     }
                                     None => {
-                                        if (value.len() < index + 1) {
+                                        if value.len() < index + 1 {
                                             return false;
                                         }
                                         match_size += 1;
@@ -327,13 +323,13 @@ impl Regex {
                                     if let Some(current_char) = value.chars().nth(index) {
                                         if current_char == *next_char {
                                             if !check_min_max(min, max, counter) {
-                                                match backtrack(&step, &mut stack, &mut queue) {
+                                                match backtrack(&step, &mut stack, queue) {
                                                     Some(size) => {
                                                         index -= size;
                                                         continue 'steps;
                                                     }
                                                     None => {
-                                                        if (value.len() < index + 1) {
+                                                        if value.len() < index + 1 {
                                                             return false;
                                                         }
                                                         index += 1;

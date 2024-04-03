@@ -1,8 +1,8 @@
-use rgrep::structures::Regex;
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::path::Path;
+
+use rgrep::regex_step::Regex;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -17,7 +17,7 @@ fn main() {
 
     let file = match File::open(file_path) {
         Ok(file) => file,
-        Err(err) => return,
+        Err(_) => return,
     };
     let reader = io::BufReader::new(file);
 
@@ -25,13 +25,13 @@ fn main() {
     for line_result in reader.lines() {
         let line = match line_result {
             Ok(line) => line,
-            Err(err) => return,
+            Err(_) => return,
         };
         lines.push(line);
     }
 
     for line in lines {
-        let mut pattern = match Regex::new(regex_str) {
+        let pattern = match Regex::new(regex_str) {
             Ok(regex) => regex,
             Err(err) => {
                 println!("Error creating regex pattern: {}", err);
