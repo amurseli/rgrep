@@ -357,7 +357,7 @@ impl Regex {
     }
 }
 
-fn backtrack(
+pub fn backtrack(
     current: &RegexStep,
     evaluated: &mut Vec<EvaluatedStep>,
     next: &mut VecDeque<RegexStep>,

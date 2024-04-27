@@ -1,8 +1,13 @@
+use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{self, BufRead};
-
-use rgrep::regex_step::Regex;
-
+use rgrep::class::Class;
+use rgrep::evaluated_step::EvaluatedStep;
+use rgrep::regex_rep::RegexRep;
+use rgrep::regex::backtrack;
+use rgrep::regex_step::{Regex, RegexStep};
+use rgrep::regex_val::RegexVal;
+use rgrep::utils::{check_min_max, handle_backslash, handle_brackets, handle_curly};
 #[test]
 fn test_regex_period() {
     let str_regex = "ab.cd";
@@ -422,4 +427,66 @@ fn test_regex_anchor() {
         }
     }
     assert_eq!(fullgrep, lines[10]);
+}
+
+
+#[test]
+fn test_backtrack() {
+    let regex_step = RegexStep {
+        rep: RegexRep::Exact(1),
+        val: RegexVal::Literal('a'),
+    };
+
+    let mut evaluated_steps = Vec::new();
+    evaluated_steps.push(EvaluatedStep {
+        step: regex_step.clone(),
+        size: 3, 
+        backtrackeable: true,
+    });
+
+    let mut regex_queue = VecDeque::new();
+    regex_queue.push_front(regex_step.clone());
+
+    assert_eq!(backtrack(&regex_step, &mut evaluated_steps, &mut regex_queue), Some(3));
+}
+
+#[test]
+fn test_matches_literal() {
+
+    let regex_val = RegexVal::Literal('a');
+
+    assert_eq!(regex_val.matches("abc"), 1);
+    assert_eq!(regex_val.matches("xyz"), 0);
+}
+
+#[test]
+fn test_matches_wildcard() {
+    let regex_val = RegexVal::Wildcard;
+
+    assert_eq!(regex_val.matches("abc"), 1);
+    assert_eq!(regex_val.matches(""), 0); //No matchea con lineas vacias
+}
+
+#[test]
+fn test_matches_bracket() {
+    let regex_val = RegexVal::Bracket(vec!['a', 'e', 'i', 'o', 'u']);
+
+    assert_eq!(regex_val.matches("ouoeuiieuauieo"), 1);
+    assert_eq!(regex_val.matches("lkjhgfd"), 0);
+}
+
+#[test]
+fn test_matches_negated_bracket() {
+    let regex_val = RegexVal::NegatedBracket(vec!['a', 'e', 'i', 'o', 'u']);
+
+    assert_eq!(regex_val.matches("ghytr"), 1);
+    assert_eq!(regex_val.matches("iiee"), 0);
+}
+
+#[test]
+fn test_matches_class() {
+    let regex_val = RegexVal::Class(Class::Digit);
+
+    assert_eq!(regex_val.matches("123"), 1);
+    assert_eq!(regex_val.matches("abc"), 0);
 }
