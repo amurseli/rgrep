@@ -3,7 +3,7 @@ use crate::evaluated_step::EvaluatedStep;
 use crate::regex_rep::RegexRep;
 use crate::regex_step::{Regex, RegexStep};
 use crate::regex_val::RegexVal;
-use crate::utils::{check_min_max, handle_backslash, handle_brackets, handle_curly};
+use crate::utils::{check_min_max, handle_anchoring_start, handle_anchoring_end, handle_backslash, handle_brackets, handle_curly};
 use std::{char, collections::VecDeque, usize::MAX};
 
 impl RegexVal {
@@ -233,118 +233,32 @@ impl Regex {
 
         Ok("".to_string())
     }
-
+    
     fn process_step(&mut self, queue: &mut VecDeque<RegexStep>, value: &str) -> bool {
         let mut stack: Vec<EvaluatedStep> = Vec::new();
         let mut index = 0;
         let mut anchored_start = false;
         let mut anchored_end = false;
 
-        if let Some(first_step) = queue.front() {
-            if let RegexVal::Literal('^') = first_step.val {
-                anchored_start = true;
-                queue.pop_front();
-            }
-        }
-        if let Some(first_step) = queue.back() {
-            if let RegexVal::Literal('$') = first_step.val {
-                anchored_end = true;
-                queue.pop_back();
-            }
-        }
+        anchored_start = handle_anchoring_start(queue);
+        anchored_end = handle_anchoring_end(queue);
+
 
         'steps: while let Some(step) = queue.pop_front() {
             match step.rep {
-                RegexRep::Exact(_) => {
-                    let mut match_size = 0;
-                    for _ in 0..=0 {
-                        let size = step.val.matches(&value[index..]);
-                        if size == 0 {
-                            if !anchored_start {
-                                match backtrack(&step, &mut stack, queue) {
-                                    Some(size) => {
-                                        index -= size;
-                                        continue 'steps;
-                                    }
-                                    None => {
-                                        if value.len() < index + 1 {
-                                            return false;
-                                        }
-                                        match_size += 1;
-                                        index += 1;
-                                    }
-                                }
-                            } else {
-                                return false;
-                            }
-                        } else {
-                            match_size += size;
-                            index += size;
-                            stack.push(EvaluatedStep {
-                                step: step.clone(),
-                                size: match_size,
-                                backtrackeable: false,
-                            });
-                        }
+                RegexRep::Exact(_) => {               
+                    if !process_exact_step(&step, queue, value, &mut index, &mut stack, anchored_start) {
+                    return false;
                     }
                 }
                 RegexRep::Any => {
-                    let mut keep_matching = true;
-                    //println!("n {:?}", step.val);
-                    while keep_matching {
-                        let match_size = step.val.matches(&value[index..]);
-                        if match_size != 0 {
-                            index += match_size;
-                            if let Some(next_step) = queue.front() {
-                                if let RegexVal::Literal(next_char) = &next_step.val {
-                                    if let Some(current_char) = value.chars().nth(index) {
-                                        if current_char == *next_char {
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            keep_matching = false;
-                        }
+                    if !process_any_step(&step, queue, value, &mut index) {
+                        return false;
                     }
                 }
                 RegexRep::Range { min, max } => {
-                    let mut keep_matching = true;
-                    let mut counter: usize = 0;
-                    //println!("n {:?}", step.val);
-                    while keep_matching {
-                        let match_size = step.val.matches(&value[index..]);
-                        if match_size != 0 {
-                            counter += 1;
-                            index += match_size;
-                            if let Some(next_step) = queue.front() {
-                                if let RegexVal::Literal(next_char) = &next_step.val {
-                                    if let Some(current_char) = value.chars().nth(index) {
-                                        if current_char == *next_char {
-                                            if !check_min_max(min, max, counter) {
-                                                match backtrack(&step, &mut stack, queue) {
-                                                    Some(size) => {
-                                                        index -= size;
-                                                        continue 'steps;
-                                                    }
-                                                    None => {
-                                                        if value.len() < index + 1 {
-                                                            return false;
-                                                        }
-                                                        index += 1;
-                                                    }
-                                                }
-                                            }
-
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            keep_matching = false;
-                        }
+                    if !process_range_step(min, max, &step, queue, value, &mut index, &mut stack, anchored_end) {
+                        return false;
                     }
                 }
             }
@@ -375,4 +289,124 @@ pub fn backtrack(
     }
 
     None
+}
+
+fn process_any_step(
+    step: &RegexStep,
+    queue: &mut VecDeque<RegexStep>,
+    value: &str,
+    index: &mut usize,
+) -> bool {
+    let mut keep_matching = true;
+    while keep_matching {
+        let match_size = step.val.matches(&value[*index..]);
+        if match_size != 0 {
+            *index += match_size;
+            if let Some(next_step) = queue.front() {
+                if let RegexVal::Literal(next_char) = &next_step.val {
+                    if let Some(current_char) = value.chars().nth(*index) {
+                        if current_char == *next_char {
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            keep_matching = false;
+        }
+    }
+    true
+}
+
+fn process_range_step(
+    min: Option<usize>,
+    max: Option<usize>,
+    step: &RegexStep,
+    queue: &mut VecDeque<RegexStep>,
+    value: &str,
+    index: &mut usize,
+    stack: &mut Vec<EvaluatedStep>,
+    anchored_end: bool,
+) -> bool {
+    let mut keep_matching = true;
+    let mut counter: usize = 0;
+    while keep_matching {
+        let match_size = step.val.matches(&value[*index..]);
+        if match_size != 0 {
+            counter += 1;
+            *index += match_size;
+            if let Some(next_step) = queue.front() {
+                if let RegexVal::Literal(next_char) = &next_step.val {
+                    if let Some(current_char) = value.chars().nth(*index) {
+                        if current_char == *next_char {
+                            if !check_min_max(min, max, counter) {
+                                match backtrack(step, stack, queue) {
+                                    Some(size) => {
+                                        *index -= size;
+                                        continue;
+                                    }
+                                    None => {
+                                        if value.len() < *index + 1 {
+                                            return false;
+                                        }
+                                        *index += 1;
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            keep_matching = false;
+        }
+    }
+
+    if anchored_end && *index != value.len() {
+        return false;
+    }
+
+    true
+}
+
+fn process_exact_step(
+    step: &RegexStep,
+    queue: &mut VecDeque<RegexStep>,
+    value: &str,
+    index: &mut usize,
+    stack: &mut Vec<EvaluatedStep>,
+    anchored_start: bool,
+) -> bool {
+    let mut match_size = 0;
+    let size = step.val.matches(&value[*index..]);
+    if size == 0 {
+        if !anchored_start {
+            match backtrack(&step, stack, queue) {
+                Some(size) => {
+                    *index -= size;
+                    return true; // Indicate backtracking occurred
+                }
+                None => {
+                    if value.len() < *index + 1 {
+                        return false;
+                    }
+                    match_size += 1;
+                    *index += 1;
+                }
+            }
+        } else {
+            return false;
+        }
+    } else {
+        match_size += size;
+        *index += size;
+        stack.push(EvaluatedStep {
+            step: step.clone(),
+            size: match_size,
+            backtrackeable: false,
+        });
+    }
+
+    true
 }

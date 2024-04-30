@@ -2,6 +2,7 @@ use crate::class::Class;
 use crate::regex_rep::RegexRep;
 use crate::regex_step::RegexStep;
 use crate::regex_val::RegexVal;
+use std::collections::VecDeque;
 use std::usize::MAX;
 
 pub fn handle_backslash(
@@ -26,7 +27,7 @@ pub fn handle_backslash(
 pub fn check_min_max(min: Option<usize>, max: Option<usize>, counter: usize) -> bool {
     match min {
         Some(min) => match max {
-            Some(max) => return !(counter < min || counter > max),
+            Some(max) => !(counter < min || counter > max),
             None => {
                 if counter > min {
                     return true;
@@ -93,6 +94,29 @@ pub fn handle_brackets(char_iter: &mut std::str::Chars) -> Result<RegexStep, &'s
         rep: RegexRep::Exact(1),
         val,
     })
+}
+
+pub fn handle_anchoring_start(queue: &mut VecDeque<RegexStep>) -> bool {
+    let mut anchor = false;
+    if let Some(first_step) = queue.front() {
+        if let RegexVal::Literal('^') = first_step.val {
+            anchor = true;
+            queue.pop_front();
+        }
+    }
+    anchor
+}
+
+pub fn handle_anchoring_end(queue: &mut VecDeque<RegexStep>) -> bool {
+    let mut anchor = false;
+    if let Some(first_step) = queue.back() {
+        if let RegexVal::Literal('$') = first_step.val {
+            anchor = true;
+            queue.pop_back();
+        }
+    }
+    anchor
+
 }
 
 pub fn handle_curly(steps: &mut [RegexStep], char_iter: &mut std::str::Chars) -> Option<RegexStep> {
