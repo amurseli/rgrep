@@ -3,7 +3,10 @@ use crate::evaluated_step::EvaluatedStep;
 use crate::regex_rep::RegexRep;
 use crate::regex_step::{Regex, RegexStep};
 use crate::regex_val::RegexVal;
-use crate::utils::{check_min_max, handle_anchoring_start, handle_anchoring_end, handle_backslash, handle_brackets, handle_curly};
+use crate::utils::{
+    check_min_max, handle_anchoring_end, handle_anchoring_start, handle_backslash, handle_brackets,
+    handle_curly,
+};
 use std::{char, collections::VecDeque, usize::MAX};
 
 impl RegexVal {
@@ -233,22 +236,26 @@ impl Regex {
 
         Ok("".to_string())
     }
-    
+
     fn process_step(&mut self, queue: &mut VecDeque<RegexStep>, value: &str) -> bool {
         let mut stack: Vec<EvaluatedStep> = Vec::new();
         let mut index = 0;
-        let mut anchored_start = false;
-        let mut anchored_end = false;
 
-        anchored_start = handle_anchoring_start(queue);
-        anchored_end = handle_anchoring_end(queue);
+        let anchored_start: bool = handle_anchoring_start(queue);
+        let anchored_end: bool = handle_anchoring_end(queue);
 
-
-        'steps: while let Some(step) = queue.pop_front() {
+        while let Some(step) = queue.pop_front() {
             match step.rep {
-                RegexRep::Exact(_) => {               
-                    if !process_exact_step(&step, queue, value, &mut index, &mut stack, anchored_start) {
-                    return false;
+                RegexRep::Exact(_) => {
+                    if !process_exact_step(
+                        &step,
+                        queue,
+                        value,
+                        &mut index,
+                        &mut stack,
+                        anchored_start,
+                    ) {
+                        return false;
                     }
                 }
                 RegexRep::Any => {
@@ -257,7 +264,18 @@ impl Regex {
                     }
                 }
                 RegexRep::Range { min, max } => {
-                    if !process_range_step(min, max, &step, queue, value, &mut index, &mut stack, anchored_end) {
+                    let mut min_max: Vec<Option<usize>> = Vec::new();
+                    min_max.push(min);
+                    min_max.push(max);
+                    if !process_range_step(
+                        min_max,
+                        &step,
+                        queue,
+                        value,
+                        &mut index,
+                        &mut stack,
+                        anchored_end,
+                    ) {
                         return false;
                     }
                 }
@@ -281,7 +299,6 @@ pub fn backtrack(
     while let Some(e) = evaluated.pop() {
         back_size += e.size;
         if e.backtrackeable {
-            //println!("Backtrack {:?}", back_size);
             return Some(back_size);
         } else {
             next.push_front(e.step);
@@ -319,8 +336,7 @@ fn process_any_step(
 }
 
 fn process_range_step(
-    min: Option<usize>,
-    max: Option<usize>,
+    min_max: Vec<Option<usize>>,
     step: &RegexStep,
     queue: &mut VecDeque<RegexStep>,
     value: &str,
@@ -339,7 +355,7 @@ fn process_range_step(
                 if let RegexVal::Literal(next_char) = &next_step.val {
                     if let Some(current_char) = value.chars().nth(*index) {
                         if current_char == *next_char {
-                            if !check_min_max(min, max, counter) {
+                            if !check_min_max(min_max[0], min_max[1], counter) {
                                 match backtrack(step, stack, queue) {
                                     Some(size) => {
                                         *index -= size;
@@ -382,16 +398,15 @@ fn process_exact_step(
     let size = step.val.matches(&value[*index..]);
     if size == 0 {
         if !anchored_start {
-            match backtrack(&step, stack, queue) {
+            match backtrack(step, stack, queue) {
                 Some(size) => {
                     *index -= size;
-                    return true; // Indicate backtracking occurred
+                    return true;
                 }
                 None => {
                     if value.len() < *index + 1 {
                         return false;
                     }
-                    match_size += 1;
                     *index += 1;
                 }
             }

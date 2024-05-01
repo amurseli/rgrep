@@ -56,7 +56,7 @@ pub fn handle_brackets(char_iter: &mut std::str::Chars) -> Result<RegexStep, &'s
             '[' => {
                 if char_iter.next() == Some(':') {
                     let mut class_name = String::new();
-                    while let Some(name_ch) = char_iter.next() {
+                    for name_ch in char_iter.by_ref() {
                         if name_ch == ':' {
                             is_class = true;
                             break;
@@ -116,7 +116,6 @@ pub fn handle_anchoring_end(queue: &mut VecDeque<RegexStep>) -> bool {
         }
     }
     anchor
-
 }
 
 pub fn handle_curly(steps: &mut [RegexStep], char_iter: &mut std::str::Chars) -> Option<RegexStep> {

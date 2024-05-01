@@ -1,13 +1,14 @@
+use rgrep::class::Class;
+use rgrep::evaluated_step::EvaluatedStep;
+use rgrep::regex::backtrack;
+use rgrep::regex_rep::RegexRep;
+use rgrep::regex_step::{self, Regex, RegexStep};
+use rgrep::regex_val::RegexVal;
+use rgrep::utils::{check_min_max, handle_backslash, handle_brackets, handle_curly};
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{self, BufRead};
-use rgrep::class::Class;
-use rgrep::evaluated_step::EvaluatedStep;
-use rgrep::regex_rep::RegexRep;
-use rgrep::regex::backtrack;
-use rgrep::regex_step::{Regex, RegexStep};
-use rgrep::regex_val::RegexVal;
-use rgrep::utils::{check_min_max, handle_backslash, handle_brackets, handle_curly};
+use std::string;
 #[test]
 fn test_regex_period() {
     let str_regex = "ab.cd";
@@ -395,7 +396,7 @@ fn test_regex_anchor() {
     let str_regex = "es el fin$";
     let filepath = "unit_test.txt";
 
-    let mut regex_instance = match Regex::new(str_regex) {
+    let regex_instance = match Regex::new(str_regex) {
         Ok(regex_instance) => regex_instance,
         Err(err) => {
             panic!("Error al crear la instancia de Regex: {}", err);
@@ -429,7 +430,6 @@ fn test_regex_anchor() {
     assert_eq!(fullgrep, lines[10]);
 }
 
-
 #[test]
 fn test_backtrack() {
     let regex_step = RegexStep {
@@ -440,19 +440,21 @@ fn test_backtrack() {
     let mut evaluated_steps = Vec::new();
     evaluated_steps.push(EvaluatedStep {
         step: regex_step.clone(),
-        size: 3, 
+        size: 3,
         backtrackeable: true,
     });
 
     let mut regex_queue = VecDeque::new();
     regex_queue.push_front(regex_step.clone());
 
-    assert_eq!(backtrack(&regex_step, &mut evaluated_steps, &mut regex_queue), Some(3));
+    assert_eq!(
+        backtrack(&regex_step, &mut evaluated_steps, &mut regex_queue),
+        Some(3)
+    );
 }
 
 #[test]
 fn test_matches_literal() {
-
     let regex_val = RegexVal::Literal('a');
 
     assert_eq!(regex_val.matches("abc"), 1);
@@ -489,4 +491,26 @@ fn test_matches_class() {
 
     assert_eq!(regex_val.matches("123"), 1);
     assert_eq!(regex_val.matches("abc"), 0);
+}
+
+#[test]
+fn test_doesnot_match_wrong_anchor() {
+    let mut regex = Regex {
+        steps: vec![
+            RegexStep {
+                rep: RegexRep::Exact(1),
+                val: RegexVal::Literal('f'),
+            },
+            RegexStep {
+                rep: RegexRep::Exact(1),
+                val: RegexVal::Literal('a'),
+            },
+            RegexStep {
+                rep: RegexRep::Exact(1),
+                val: RegexVal::Literal('$'),
+            },
+        ],
+    };
+
+    assert_eq!(regex.test("fa no").unwrap(), "");
 }
